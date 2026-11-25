@@ -83,7 +83,7 @@ pub(crate) fn drop_slide_drag(app: &mut SlideApp) {
 /// as one `slide.move` (one undo step). Returns false when they are already there.
 pub(crate) fn move_selected_slides(app: &mut SlideApp, up: bool, edge: bool) -> bool {
     let Some(st) = app.session.active() else { return false };
-    let selected: HashSet<SlideId> = st.selection.slides.iter().copied().chain(std::iter::once(st.selection.slide_id())).flatten().collect();
+    let selected: HashSet<SlideId> = st.selection.slides.iter().copied().chain(st.doc.slides.get(st.selection.slide).map(|s| s.id)).collect();
     let moving: Vec<usize> = st.doc.slides.iter().enumerate().filter(|(_, s)| selected.contains(&s.id)).map(|(i, _)| i).collect();
     let (Some(&first), Some(&last)) = (moving.first(), moving.last()) else { return false };
     let n = st.doc.slides.len();
@@ -646,5 +646,31 @@ mod tests {
         assert_eq!(app.session.active().unwrap().doc.slides.iter().map(|s| s.id.0).collect::<Vec<_>>(), other);
         app.session.set_active(0);
         assert_eq!(order(&h), ids, "and the first presentation is untouched");
+    }
+
+    #[test]
+    fn move_selected_slides_steps_and_edges() {
+        let (mut h, ids) = tall_harness(4);
+        let app = h.state_mut();
+        app.run("slide.go", json!({"index": 0})).unwrap();
+        assert!(!move_selected_slides(app, true, false), "already first");
+        assert!(move_selected_slides(app, false, false));
+        assert_eq!(order(&h), [ids[1], ids[0], ids[2], ids[3]]);
+        let app = h.state_mut();
+        assert!(move_selected_slides(app, false, true));
+        assert_eq!(order(&h), [ids[1], ids[2], ids[3], ids[0]]);
+        let app = h.state_mut();
+        assert!(!move_selected_slides(app, false, false), "already last");
+        assert!(move_selected_slides(app, true, false));
+        assert_eq!(order(&h), [ids[1], ids[2], ids[0], ids[3]]);
+        let app = h.state_mut();
+        assert!(move_selected_slides(app, true, true));
+        assert_eq!(order(&h), [ids[0], ids[1], ids[2], ids[3]]);
+        let app = h.state_mut();
+        app.run("slide.selectSlides", json!({"ids": [ids[0], ids[1]]})).unwrap();
+        assert!(move_selected_slides(app, false, false));
+        assert_eq!(order(&h), [ids[2], ids[0], ids[1], ids[3]]);
+        h.state_mut().run("edit.undo", json!({})).unwrap();
+        assert_eq!(order(&h), ids, "one undo puts both back");
     }
 }
