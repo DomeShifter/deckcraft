@@ -107,6 +107,7 @@ impl SlideApp {
             next_file_id: 1,
             pending_files: Vec::new(),
             host_start: None,
+            host_chrome: crate::HostChrome::default(),
             ime_tracker: egui::ime_context::ImeContextTracker::new(),
             ime_pending: None,
             ime_frame_viewport: None,
@@ -119,6 +120,13 @@ impl SlideApp {
             ime_interrupt_pending: false,
             ime_reset: HashMap::new(),
         }
+    }
+
+    /// The app with the given parts of its own window shown; a host that draws its own menus,
+    /// toolbar or status line turns the matching parts off.
+    pub fn with_chrome(mut self, chrome: crate::HostChrome) -> Self {
+        self.host_chrome = chrome;
+        self
     }
 
     pub fn with_control(mut self, rx: Receiver<ControlRequest>) -> Self {
@@ -316,10 +324,17 @@ impl SlideApp {
         self.sync_backstage();
         self.keyboard(&ctx);
         self.sync_backstage();
-        ribbon::title_bar(self, ui);
+        let c = self.host_chrome;
+        if c.title_bar {
+            ribbon::title_bar(self, ui);
+        }
         if self.backstage.is_none() && self.session.active().is_some() {
-            ribbon::show(self, ui);
-            status::status_bar(self, ui);
+            if c.ribbon {
+                ribbon::show(self, ui);
+            }
+            if c.status_bar {
+                status::status_bar(self, ui);
+            }
         }
         let now = ui.input(|i| i.time);
         if self.tick_anim_preview(now) {

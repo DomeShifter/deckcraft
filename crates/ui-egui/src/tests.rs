@@ -2503,3 +2503,37 @@ fn comments_pane_keeps_its_width_and_resizes() {
     let wide = drag(&mut h, -150.0);
     assert!(wide > narrow + 140.0, "dragging left widens the pane: {narrow} -> {wide}");
 }
+
+/// Starbase Slides: a host that draws its own menus turns the title bar, ribbon and status bar
+/// off; the slides and their commands stay.
+#[test]
+fn a_host_can_hide_the_title_bar_ribbon_and_status_bar() {
+    let mut app =
+        SlideApp::new(Session::new(), Services::default()).with_chrome(crate::HostChrome { title_bar: false, ribbon: false, status_bar: false });
+    app.run("file.new", json!({})).unwrap();
+    let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_ui_state(
+        |ui, app: &mut SlideApp| {
+            app.logic(ui.ctx());
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(4);
+    assert!(h.query_by_label("Window title bar").is_none(), "no title bar");
+    assert!(h.query_by_label("Zoom level").is_none(), "no status bar");
+    assert!(h.query_by_label("Animations").is_none(), "no ribbon tabs");
+    let before = h.state().session.active().unwrap().doc.slides.len();
+    assert!(h.state_mut().run("slide.new", json!({})).is_ok(), "commands still run without the ribbon");
+    assert_eq!(h.state().session.active().unwrap().doc.slides.len(), before + 1);
+}
+
+/// Starbase Slides: with every part on (the default), the window is DeckCraft's own.
+#[test]
+fn the_default_window_keeps_the_title_bar_ribbon_and_status_bar() {
+    let mut h = harness();
+    h.state_mut().run("file.new", json!({})).unwrap();
+    h.run_steps(4);
+    assert!(h.query_by_label("Window title bar").is_some(), "title bar");
+    assert!(h.query_by_label("Zoom level").is_some(), "status bar");
+    assert!(h.query_by_label("Animations").is_some(), "ribbon tabs");
+}

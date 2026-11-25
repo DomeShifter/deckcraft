@@ -338,6 +338,8 @@ pub struct SlideApp {
     /// The empty presentation host mode starts with ([`SlideApp::start_for_host`]), until the
     /// first file the page sends takes its place.
     host_start: Option<u64>,
+    /// Which parts of DeckCraft's own window are drawn (see [`HostChrome`]).
+    pub(crate) host_chrome: HostChrome,
     /// Owner/generation/cause bookkeeping for the canvas text IME producer.
     ime_tracker: egui::ime_context::ImeContextTracker,
     /// Canvas IME geometry for this pass: the caret while editing, or the selected shape.
@@ -368,6 +370,26 @@ pub struct SlideApp {
     /// keyed by viewport so a request or completion stamped for another viewport is never bound;
     /// render-only child viewports are rejected before they can create or overwrite an entry.
     ime_reset: HashMap<egui::ViewportId, ImeResetPhase>,
+}
+
+/// The parts of DeckCraft's window a host can switch off when it draws its own menus, toolbar
+/// and status line around the slides. Every command stays reachable through the session
+/// (`SlideApp::run`), so a host that hides the ribbon can still run anything it offered,
+/// including File, Present and Save, which live in the title bar. All on by default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HostChrome {
+    /// The title bar: the quick-access toolbar, the file name, Search, Present and the File tab.
+    pub title_bar: bool,
+    /// The ribbon: its tabs and commands.
+    pub ribbon: bool,
+    /// The status bar under the slides: slide count, language, notes, views and zoom.
+    pub status_bar: bool,
+}
+
+impl Default for HostChrome {
+    fn default() -> Self {
+        HostChrome { title_bar: true, ribbon: true, status_bar: true }
+    }
 }
 
 /// The platform's in-progress IME composition, as far as this editor tracks it.
