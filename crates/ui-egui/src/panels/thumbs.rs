@@ -79,6 +79,25 @@ pub(crate) fn drop_slide_drag(app: &mut SlideApp) {
     }
 }
 
+/// Moves the selected slides one place up (`up`) or down, or to the very start or end (`edge`),
+/// as one `slide.move` (one undo step). Returns false when they are already there.
+pub(crate) fn move_selected_slides(app: &mut SlideApp, up: bool, edge: bool) -> bool {
+    let Some(st) = app.session.active() else { return false };
+    let selected: HashSet<SlideId> = st.selection.slides.iter().copied().chain(std::iter::once(st.selection.slide_id())).flatten().collect();
+    let moving: Vec<usize> = st.doc.slides.iter().enumerate().filter(|(_, s)| selected.contains(&s.id)).map(|(i, _)| i).collect();
+    let (Some(&first), Some(&last)) = (moving.first(), moving.last()) else { return false };
+    let n = st.doc.slides.len();
+    let slot = match (up, edge) {
+        (true, true) => 0,
+        (true, false) => first.saturating_sub(1),
+        (false, true) => n,
+        (false, false) => (last + 2).min(n),
+    };
+    let Some(to) = slides_move_dest(&moving, slot) else { return false };
+    let ids: Vec<u32> = st.doc.slides.iter().filter(|s| selected.contains(&s.id)).map(|s| s.id.0).collect();
+    app.run("slide.move", json!({"ids": ids, "to": to})).is_ok()
+}
+
 /// Render the slide thumbnail pane, including section headers, selection, and scroll state.
 pub fn show(app: &mut SlideApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
@@ -329,6 +348,15 @@ pub fn slide_menu(app: &mut SlideApp, ui: &mut Ui, i: usize) {
         let _ = app.run("slide.delete", json!({}));
         ui.close();
     }
+    ui.separator();
+    ui.menu_button("Move slide", |ui| {
+        for (l, up, edge) in [("Move up", true, false), ("Move down", false, false), ("Move to start", true, true), ("Move to end", false, true)] {
+            if ui.button(l).clicked() {
+                move_selected_slides(app, up, edge);
+                ui.close();
+            }
+        }
+    });
     ui.separator();
     if ui.button("Add Section").clicked() {
         let _ = app.run("section.add", json!({"at": i}));
