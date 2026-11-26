@@ -269,7 +269,7 @@ pub fn build_master(size: Size, theme: Theme, first_id: u32) -> (Master, u32) {
             list_style: ls,
             paragraphs: vec![],
         });
-        let (x, y, ww, hh) = r(120.0, 284.0, 720.0, 130.0);
+        let (x, y, ww, hh) = r(120.0, 304.0, 720.0, 110.0);
         let mut st = b.shape("Subtitle 2", PhType::SubTitle, 1, [x, y, ww, hh]);
         let mut ls = ListStyle::default();
         ls.set(
