@@ -186,3 +186,29 @@ fn a_dropped_file_stays_on_the_slide_it_was_dropped_on() {
     assert_eq!(pictures(&app, uid, slide0), 1, "{status}");
     assert_eq!(pictures(&app, uid, slide1), 0);
 }
+
+/// Starbase's Paste standard: a menu Paste with no text asks the host (`menu_paste`); the text the
+/// host reads later arrives as `InboxEvent::Paste` and pastes without asking again.
+#[test]
+fn menu_paste_asks_the_host_once_and_inbox_paste_does_not_ask_again() {
+    let asked = Arc::new(Mutex::new(0u32));
+    let count = asked.clone();
+    let inbox: Inbox = Inbox::default();
+    let services = Services {
+        inbox: Some(inbox.clone()),
+        menu_paste: Some(Box::new(move || {
+            *count.lock().expect("count") += 1;
+            true
+        })),
+        ..Default::default()
+    };
+    let mut app = SlideApp::new(Session::with_new(), services);
+    let _ = app.run("edit.paste", json!({}));
+    assert_eq!(*asked.lock().expect("count"), 1);
+    inbox.lock().expect("inbox").push(InboxEvent::Paste("hello".into()));
+    app.drain_inbox();
+    assert_eq!(*asked.lock().expect("count"), 1);
+    // A paste that carries its own text is never intercepted either.
+    let _ = app.run("edit.paste", json!({"text": "x"}));
+    assert_eq!(*asked.lock().expect("count"), 1);
+}

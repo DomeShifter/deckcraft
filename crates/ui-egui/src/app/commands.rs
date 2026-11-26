@@ -18,6 +18,10 @@ impl SlideApp {
     /// Run a command by id (UI commands here, everything else in the engine). Errors show in the
     /// status bar and are returned.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
+        // A menu Paste without text: the host may read the clipboard itself (Starbase's Paste standard).
+        if id == "edit.paste" && params.get("text").is_none() && self.services.menu_paste.as_mut().is_some_and(|f| f()) {
+            return Ok(json!({}));
+        }
         let r = if UI_COMMANDS.iter().any(|c| c.0 == id) {
             self.run_ui(id, &params)
         } else if id == "file.save" && self.services.host_save.is_some() && params.get("path").is_none() {
@@ -33,6 +37,9 @@ impl SlideApp {
             // put the text on the system clipboard, as Ctrl+C and Ctrl+X do (#431).
             Ok(v) if matches!(id, "edit.copy" | "edit.cut") => {
                 if let Some(t) = v.get("text").and_then(Value::as_str) {
+                    if let Some(f) = self.services.copied.as_mut() {
+                        f(&super::clipboard::system_clipboard_text(t));
+                    }
                     self.pending_copy = Some(t.to_string());
                 }
             }

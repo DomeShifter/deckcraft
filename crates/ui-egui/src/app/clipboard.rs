@@ -71,8 +71,15 @@ impl SlideApp {
         let html = v.get("html").and_then(Value::as_str).unwrap_or("").to_string();
         if self.session.clipboard.slides.is_empty() && !html.is_empty() && self.services.clipboard_set_html.as_mut().is_some_and(|f| f(&html, &text))
         {
+            if let Some(f) = self.services.copied.as_mut() {
+                f(&system_clipboard_text(&text));
+            }
             return;
         }
-        ctx.copy_text(system_clipboard_text(&text));
+        let out = system_clipboard_text(&text);
+        if let Some(f) = self.services.copied.as_mut() {
+            f(&out);
+        }
+        ctx.copy_text(out);
     }
 }

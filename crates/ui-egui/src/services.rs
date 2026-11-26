@@ -32,6 +32,9 @@ pub enum InboxEvent {
     Cancelled {
         id: u64,
     },
+    /// Text the host read from the system clipboard for a menu Paste (see [`Services::menu_paste`]);
+    /// pasted as if it had arrived with Ctrl+V.
+    Paste(String),
 }
 
 /// Files delivered asynchronously by the host (web file picker, dropped files).
@@ -69,6 +72,14 @@ pub struct Services {
     pub clipboard_html: Option<Box<dyn FnMut() -> Option<String>>>,
     /// Put HTML and its plain-text alternative on the system clipboard. `true` when it landed.
     pub clipboard_set_html: Option<Box<dyn FnMut(&str, &str) -> bool>>,
+    /// A menu Paste (ribbon, menus, the slide's right-click menu) with no text of its own asks
+    /// the host first. `true`: the host handles it (it reads the clipboard and delivers the text as
+    /// [`InboxEvent::Paste`], or shows its own "press Ctrl+V" prompt); `false`: paste the
+    /// program's own copy as before.
+    pub menu_paste: Option<Box<dyn FnMut() -> bool>>,
+    /// Text that just went to the system clipboard from a Copy or Cut (any route), so the host
+    /// can tell whether its own copy is still the clipboard's.
+    pub copied: Option<Box<dyn FnMut(&str)>>,
     /// Audio output for media playback (cpal on desktop); without one media plays silently.
     pub audio_out: Option<Box<dyn deckcraft_media::AudioOut>>,
     /// How many displays are connected, when the host can tell: Presenter View needs a second.

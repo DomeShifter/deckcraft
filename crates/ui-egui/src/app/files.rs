@@ -620,6 +620,18 @@ impl SlideApp {
             match event {
                 InboxEvent::Cancelled { id } => self.pending_files.retain(|r| r.id != id),
                 InboxEvent::File(file) => self.apply_external_file(file.id, &file.name, &file.bytes),
+                InboxEvent::Paste(text) => {
+                    // The marker for copied objects without text means "paste what the session copied".
+                    // (Straight to the session: `run` would ask the host again.)
+                    let r = if text == super::clipboard::OBJECTS_MARKER {
+                        self.session.execute("edit.paste", &json!({})).map_err(|e| e.to_string())
+                    } else {
+                        self.run("edit.paste", json!({"text": text}))
+                    };
+                    if let Err(e) = r {
+                        self.set_status(e);
+                    }
+                }
             }
         }
     }
